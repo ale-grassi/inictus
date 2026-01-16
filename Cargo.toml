@@ -1,0 +1,53 @@
+[package]
+name = "inictus"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+authors = ["Alessandro Grassi <alessandrograssi17@gmail.com>"]
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+libc = "0.2"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[features]
+default = ["padding", "release-mem", "rdpid"]
+padding = []
+bench = []
+trusted-free = []
+debug-tripwire = []
+c_api = ["trusted-free"]
+release-mem = []  # Enable madvise to release physical pages on span free
+dynamic = []      # Safe TLS handling for LD_PRELOAD use (handles exit during TLS destruction)
+rdpid = []        # Use RDPID instruction for CPU ID (Intel Skylake+, AMD Zen+)
+
+[[bench]]
+name = "malloc_throughput"
+harness = false
+
+[[bench]]
+name = "cpu_id"
+harness = false
+
+[profile.release]
+debug = false
+lto = true
+codegen-units = 1
+opt-level = 3
+strip = true              # Strip symbols from binary
+panic = "abort"           # Smaller binary, no unwinding
+
+[profile.bench]
+inherits = "release"
+debug = true              # Debug info for profiling/criterion
+strip = false             # Keep symbols for criterion
+
+[profile.perf]
+inherits = "release"
+debug = 2                 # Full debug info
+strip = false             # Keep all symbols
+panic = "unwind"          # Full stack traces
