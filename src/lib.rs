@@ -692,9 +692,10 @@ impl Arena {
     ptr.is_aligned() && addr >= base && addr < base + ARENA_SIZE
   }
 
+  #[inline(never)]
   fn global_pop(&self, cpu: usize, class: usize) -> *mut SpanHeader {
     let start = cpu & (SHARD_COUNT - 1);
-    for i in 0..SHARD_COUNT {
+    for i in 0..hint::black_box(SHARD_COUNT) {
       let span_ptr = self.cache.pop((start + i) & (SHARD_COUNT - 1), class);
       if !span_ptr.is_null() {
         return span_ptr;
@@ -707,9 +708,10 @@ impl Arena {
     self.cache.push(cpu & (SHARD_COUNT - 1), class, span);
   }
 
+  #[inline(never)]
   fn reuse_pop(&self, cpu: usize, class: usize) -> *mut SpanHeader {
     let start = cpu & (SHARD_COUNT - 1);
-    for i in 0..SHARD_COUNT {
+    for i in 0..hint::black_box(SHARD_COUNT) {
       let span_ptr = self.reuse.pop((start + i) & (SHARD_COUNT - 1), class);
       if !span_ptr.is_null() {
         return span_ptr;
@@ -740,6 +742,7 @@ impl Arena {
   }
 
   /// Get a small `Span` prepared for allocation:
+  #[inline(never)]
   fn get_span_small(&self, heap: &mut ThreadHeap, class: usize) -> *mut SpanHeader {
     // 1) Local cache
     let span_ptr = heap.cache_pop(class);
