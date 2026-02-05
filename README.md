@@ -74,81 +74,81 @@ Benchmark comparison using [mimalloc-bench](https://github.com/daanx/mimalloc-be
 
 | Test | glibc | inictus | Result |
 |------|-------|---------|--------|
-| glibc-simple | 2.36s (1.5MB) | 1.89s (4.9MB) | **1.25x** ✓ |
-| cfrac | 3.50s (2.8MB) | 3.39s (5.0MB) | **1.03x** ✓ |
-| espresso | 3.64s (2.1MB) | 3.52s (6.1MB) | **1.04x** ✓ |
-| barnes | 2.63s (57.1MB) | 2.64s (59.3MB) | ~1.0x |
-| glibc-thread | 2.00s (1.6MB) | 2.00s (7.6MB) | ~1.0x |
-| larsonN | 7.00s (16.1MB) | 7.01s (13.8MB) | ~1.0x |
-| larsonN-sized | 7.00s (16.2MB) | 7.01s (13.7MB) | ~1.0x |
-| mstressN | 0.02s (4.4MB) | 0.02s (9.3MB) | 0.86x |
-| rptestN | 16.00s (4.9MB) | 16.01s (97.2MB) | ~1.0x |
-| xmalloc-testN | 5.00s (2.9MB) | 5.03s (42.3MB) | ~1.0x |
-| cache-scratch1 | 0.92s (3.8MB) | 0.95s (12.9MB) | 0.97x |
-| alloc-test1 | 3.46s (13.6MB) | 3.63s (20.9MB) | 0.95x |
-| sh6benchN | 2.98s (409.9MB) | 2.11s (413.4MB) | **1.41x** ✓ |
-| sh8benchN | 12.09s (172.0MB) | 6.21s (124.4MB) | **1.95x** ✓ |
-| malloc-large | 3.46s (521.4MB) | 2.93s (630.1MB) | **1.18x** ✓ |
+| glibc-simple | 2.36s (1.5MB) | 1.83s (2.3MB) | **1.28x** ✓ |
+| cfrac | 3.50s (2.8MB) | 3.39s (3.0MB) | **1.03x** ✓ |
+| espresso | 3.64s (2.1MB) | 3.41s (3.5MB) | **1.06x** ✓ |
+| barnes | 2.63s (57.1MB) | 2.61s (58.4MB) | ~1.0x |
+| glibc-thread | 2.00s (1.6MB) | 2.00s (2.2MB) | ~1.0x |
+| larsonN | 7.00s (16.1MB) | 7.00s (10.2MB) | ~1.0x |
+| larsonN-sized | 7.00s (16.2MB) | 7.00s (10.3MB) | ~1.0x |
+| mstressN | 0.02s (4.4MB) | 0.02s (6.0MB) | ~1.0x |
+| rptestN | 16.00s (4.9MB) | 16.01s (94.0MB) | ~1.0x |
+| xmalloc-testN | 5.00s (2.9MB) | 5.01s (31.9MB) | ~1.0x |
+| cache-scratch1 | 0.92s (3.8MB) | 0.94s (4.2MB) | 0.97x |
+| alloc-test1 | 3.46s (13.6MB) | 3.47s (13.3MB) | ~1.0x |
+| sh6benchN | 2.98s (409.9MB) | 2.15s (412.0MB) | **1.38x** ✓ |
+| sh8benchN | 12.09s (172.0MB) | 5.99s (118.0MB) | **2.01x** ✓ |
+| malloc-large | 3.46s (521.4MB) | 2.83s (628.3MB) | **1.22x** ✓ |
 
 ### 4 Threads
 
 | Test | glibc | inictus | Result |
 |------|-------|---------|--------|
-| glibc-simple | 2.33s (1.5MB) | 1.87s (2.9MB) | **1.24x** ✓ |
-| cfrac | 3.44s (2.7MB) | 3.45s (5.7MB) | ~1.0x |
-| espresso | 3.66s (2.2MB) | 3.41s (6.6MB) | **1.07x** ✓ |
-| barnes | 2.68s (57.0MB) | 2.60s (59.6MB) | **1.03x** ✓ |
+| glibc-simple | 2.33s (1.5MB) | 1.78s (2.2MB) | **1.30x** ✓ |
+| cfrac | 3.44s (2.7MB) | 3.39s (2.6MB) | ~1.0x |
+| espresso | 3.66s (2.2MB) | 3.41s (3.3MB) | **1.07x** ✓ |
+| barnes | 2.68s (57.0MB) | 2.59s (57.4MB) | **1.03x** ✓ |
 | glibc-thread | 2.00s (2.2MB) | 2.00s (4.3MB) | ~1.0x |
-| larsonN | 7.01s (39.1MB) | 7.01s (25.1MB) | ~1.0x |
-| larsonN-sized | 7.01s (37.8MB) | 7.01s (25.7MB) | ~1.0x |
-| mstressN | 0.26s (79.4MB) | 0.21s (51.0MB) | **1.26x** ✓ |
-| rptestN | 16.00s (15.9MB) | 16.04s (499.6MB) | ~1.0x |
-| xmalloc-testN | 5.02s (44.8MB) | 5.02s (39.9MB) | ~1.0x |
-| cache-scratch1 | 0.95s (3.7MB) | 0.99s (8.1MB) | 0.96x |
-| alloc-test1 | 3.59s (13.7MB) | 3.74s (17.5MB) | 0.96x |
-| sh6benchN | 1.29s (410.3MB) | 0.67s (328.6MB) | **1.93x** ✓ |
-| sh8benchN | 4.10s (159.7MB) | 1.99s (122.4MB) | **2.06x** ✓ |
-| malloc-large | 3.65s (521.5MB) | 3.00s (629.1MB) | **1.22x** ✓ |
+| larsonN | 7.01s (39.1MB) | 7.01s (25.2MB) | ~1.0x |
+| larsonN-sized | 7.01s (37.8MB) | 7.01s (25.5MB) | ~1.0x |
+| mstressN | 0.26s (79.4MB) | 0.20s (51.0MB) | **1.30x** ✓ |
+| rptestN | 16.00s (15.9MB) | 16.03s (499.4MB) | ~1.0x |
+| xmalloc-testN | 5.02s (44.8MB) | 5.00s (39.4MB) | ~1.0x |
+| cache-scratch1 | 0.95s (3.7MB) | 0.92s (6.2MB) | **1.03x** ✓ |
+| alloc-test1 | 3.59s (13.7MB) | 3.58s (15.1MB) | ~1.0x |
+| sh6benchN | 1.29s (410.3MB) | 0.59s (330.0MB) | **2.18x** ✓ |
+| sh8benchN | 4.10s (159.7MB) | 1.87s (120.0MB) | **2.19x** ✓ |
+| malloc-large | 3.65s (521.5MB) | 2.87s (628.8MB) | **1.27x** ✓ |
 
 ### 8 Threads
 
 | Test | glibc | inictus | Result |
 |------|-------|---------|--------|
-| glibc-simple | 2.78s (1.5MB) | 1.93s (5.6MB) | **1.44x** ✓ |
-| cfrac | 3.93s (2.7MB) | 3.56s (8.9MB) | **1.10x** ✓ |
-| espresso | 4.36s (2.0MB) | 3.50s (5.1MB) | **1.25x** ✓ |
-| barnes | 2.96s (60.9MB) | 2.68s (59.5MB) | **1.10x** ✓ |
-| glibc-thread | 2.00s (2.7MB) | 2.01s (6.6MB) | ~1.0x |
-| larsonN | 7.03s (74.8MB) | 7.03s (44.5MB) | ~1.0x |
-| larsonN-sized | 7.03s (71.8MB) | 7.04s (43.5MB) | ~1.0x |
-| mstressN | 0.78s (228.4MB) | 0.56s (167.7MB) | **1.40x** ✓ |
-| rptestN | 16.00s (27.2MB) | 16.08s (914.0MB) | ~1.0x |
-| xmalloc-testN | 5.01s (59.7MB) | 5.02s (44.8MB) | ~1.0x |
-| cache-scratch1 | 1.03s (3.9MB) | 0.95s (12.8MB) | **1.08x** ✓ |
-| alloc-test1 | 3.42s (13.9MB) | 3.56s (23.3MB) | 0.96x |
-| sh6benchN | 0.96s (412.3MB) | 0.42s (315.8MB) | **2.29x** ✓ |
-| sh8benchN | 3.14s (160.7MB) | 1.33s (120.7MB) | **2.36x** ✓ |
-| malloc-large | 3.30s (521.5MB) | 2.98s (629.2MB) | **1.11x** ✓ |
+| glibc-simple | 2.78s (1.5MB) | 1.72s (2.1MB) | **1.61x** ✓ |
+| cfrac | 3.93s (2.7MB) | 3.42s (4.8MB) | **1.14x** ✓ |
+| espresso | 4.36s (2.0MB) | 3.38s (3.2MB) | **1.28x** ✓ |
+| barnes | 2.96s (60.9MB) | 2.61s (57.2MB) | **1.13x** ✓ |
+| glibc-thread | 2.00s (2.7MB) | 2.00s (4.0MB) | ~1.0x |
+| larsonN | 7.03s (74.8MB) | 7.03s (38.7MB) | ~1.0x |
+| larsonN-sized | 7.03s (71.8MB) | 7.03s (39.4MB) | ~1.0x |
+| mstressN | 0.78s (228.4MB) | 0.52s (162.6MB) | **1.50x** ✓ |
+| rptestN | 16.00s (27.2MB) | 16.08s (913.6MB) | ~1.0x |
+| xmalloc-testN | 5.01s (59.7MB) | 5.01s (38.3MB) | ~1.0x |
+| cache-scratch1 | 1.03s (3.9MB) | 0.93s (3.9MB) | **1.10x** ✓ |
+| alloc-test1 | 3.42s (13.9MB) | 3.54s (17.4MB) | 0.96x |
+| sh6benchN | 0.96s (412.3MB) | 0.37s (315.6MB) | **2.59x** ✓ |
+| sh8benchN | 3.14s (160.7MB) | 1.32s (123.1MB) | **2.37x** ✓ |
+| malloc-large | 3.30s (521.5MB) | 2.89s (628.5MB) | **1.14x** ✓ |
 
 ### 16 Threads
 
 | Test | glibc | inictus | Result |
 |------|-------|---------|--------|
-| glibc-simple | 2.22s (1.5MB) | 1.88s (3.4MB) | **1.18x** ✓ |
-| cfrac | 3.58s (2.7MB) | 3.39s (6.4MB) | **1.06x** ✓ |
-| espresso | 3.75s (2.2MB) | 3.40s (5.2MB) | **1.10x** ✓ |
-| barnes | 2.82s (56.9MB) | 2.59s (58.9MB) | **1.09x** ✓ |
-| glibc-thread | 2.00s (3.9MB) | 2.00s (7.7MB) | ~1.0x |
-| larsonN | 7.09s (133.0MB) | 7.08s (70.0MB) | ~1.0x |
-| larsonN-sized | 7.09s (120.9MB) | 7.08s (70.9MB) | ~1.0x |
-| mstressN | 1.44s (482.8MB) | 0.93s (354.6MB) | **1.54x** ✓ |
-| rptestN | 16.00s (47.0MB) | 16.14s (1686.2MB) | ~1.0x |
-| xmalloc-testN | 5.02s (73.0MB) | 5.01s (45.8MB) | ~1.0x |
-| cache-scratch1 | 0.93s (3.7MB) | 0.96s (20.1MB) | 0.97x |
-| alloc-test1 | 3.31s (13.8MB) | 3.65s (27.6MB) | 0.91x |
-| sh6benchN | 0.78s (414.6MB) | 0.42s (317.2MB) | **1.86x** ✓ |
-| sh8benchN | 2.49s (160.5MB) | 1.20s (122.9MB) | **2.08x** ✓ |
-| malloc-large | 3.64s (521.2MB) | 2.89s (630.8MB) | **1.26x** ✓ |
+| glibc-simple | 2.22s (1.5MB) | 1.80s (3.4MB) | **1.23x** ✓ |
+| cfrac | 3.58s (2.7MB) | 3.38s (4.9MB) | **1.05x** ✓ |
+| espresso | 3.75s (2.2MB) | 3.36s (4.5MB) | **1.11x** ✓ |
+| barnes | 2.82s (56.9MB) | 2.57s (58.6MB) | **1.09x** ✓ |
+| glibc-thread | 2.00s (3.9MB) | 2.00s (7.5MB) | ~1.0x |
+| larsonN | 7.09s (133.0MB) | 7.07s (69.1MB) | ~1.0x |
+| larsonN-sized | 7.09s (120.9MB) | 7.07s (69.9MB) | ~1.0x |
+| mstressN | 1.44s (482.9MB) | 0.91s (348.5MB) | **1.58x** ✓ |
+| rptestN | 16.00s (47.0MB) | 16.13s (1509.6MB) | ~1.0x |
+| xmalloc-testN | 5.02s (73.0MB) | 5.01s (43.1MB) | ~1.0x |
+| cache-scratch1 | 0.93s (3.7MB) | 0.94s (16.1MB) | ~1.0x |
+| alloc-test1 | 3.31s (13.8MB) | 3.60s (24.0MB) | 0.91x |
+| sh6benchN | 0.78s (414.6MB) | 0.40s (317.2MB) | **1.95x** ✓ |
+| sh8benchN | 2.49s (160.5MB) | 1.18s (120.3MB) | **2.11x** ✓ |
+| malloc-large | 3.64s (521.2MB) | 2.85s (629.0MB) | **1.27x** ✓ |
 
 ### Scalability Notes
 

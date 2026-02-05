@@ -22,6 +22,8 @@ const SPAN_ALIGN_MASK: usize = !(SPAN_SIZE - 1);
 const SPAN_HEADER_SIZE: usize = size_of::<SpanHeader>();
 /// Owner ID for orphaned spans (no owning thread).
 const SPAN_OWNER_ORPHAN: u32 = 0;
+/// Magic number to identify valid SpanHeaders
+const SPAN_MAGIC: u64 = 0x494E_4943_5455_5321; // "INICTUS!"
 
 const SPANS_PER_ARENA: usize = ARENA_SIZE / SPAN_SIZE;
 
@@ -134,6 +136,8 @@ struct SpanHeader {
   huge_base: *mut u8,
   /// Total mmap size.
   huge_size: usize,
+  /// Magic number for validation
+  magic: u64,
 }
 
 // =============================================================================
@@ -966,6 +970,7 @@ unsafe fn init_span(span: *mut SpanHeader, class: usize, tid: u32) {
   header.cache_next = null_mut();
   header.huge_base = null_mut();
   header.huge_size = 0;
+  header.magic = SPAN_MAGIC;
 }
 
 fn alloc_small(heap: &mut ThreadHeap, arena: &Arena, size: usize) -> Option<NonNull<u8>> {
@@ -1159,6 +1164,7 @@ fn alloc_large(arena: &Arena, size: usize) -> *mut u8 {
     (*span).used.store(0, Ordering::Relaxed);
     (*span).remote_free.store(null_mut(), Ordering::Relaxed);
     (*span).cache_next = null_mut();
+    (*span).magic = SPAN_MAGIC;
 
     (span as *mut u8).add(SPAN_HEADER_SIZE)
   }
@@ -1191,6 +1197,7 @@ fn alloc_huge(size: usize) -> *mut u8 {
     (*span).in_reuse.store(false, Ordering::Relaxed);
     (*span).used.store(0, Ordering::Relaxed);
     (*span).remote_free.store(null_mut(), Ordering::Relaxed);
+    (*span).magic = SPAN_MAGIC;
 
     (span as *mut u8).add(SPAN_HEADER_SIZE)
   }
@@ -1258,8 +1265,15 @@ unsafe impl GlobalAlloc for Allocator {
       }
     }
 
-    // Pointer is either a huge allocation OR a foreign pointer.
-    // TODO: Add huge magic number validation to properly free huge allocations.
+    // Pointer is outside arena. Check if it's a huge allocation via magic number.
+    let span = (ptr as usize - SPAN_HEADER_SIZE) as *mut SpanHeader;
+    unsafe {
+      if (*span).magic == SPAN_MAGIC && (*span).kind == SpanKind::Huge {
+        free_huge(span);
+      }
+    }
+
+    // It's a foreign pointer, is ignored.
   }
 
   unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
