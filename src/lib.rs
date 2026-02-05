@@ -85,6 +85,8 @@ const _: () = assert!(CLASSES_MAX_SIZE >= 16);
 const _: () = assert!(SHARD_COUNT.is_power_of_two());
 const _: () = assert!(SPAN_HEADER_SIZE < SPAN_SIZE / 2);
 const _: () = assert!(THREAD_LOCAL_CACHE_SIZE >= 1);
+const _: () = assert!(core::mem::offset_of!(SpanHeader, remote_free) >= 64);
+const _: () = assert!(SPAN_HEADER_SIZE == 128); // 2 cache lines
 
 // =============================================================================
 // Types
@@ -105,8 +107,9 @@ struct FreeBlock {
 }
 
 /// Span metadata. Sits at offset 0 of each 64KB span.
-#[repr(C, align(64))]
+#[repr(C, align(128))]
 struct SpanHeader {
+  // === Cache line 0: Owner-thread hot path (no cross-thread writes) ===
   /// Next bump allocation address.
   bump: *mut u8,
   /// End of bump region.
@@ -115,6 +118,15 @@ struct SpanHeader {
   hot_block: *mut u8,
   /// Free blocks list (owner-thread only).
   local_free: *mut FreeBlock,
+  block_size: u32,
+  class: u8,
+  kind: SpanKind,
+  /// Buddy order (0 = 1 span, 1 = 2 spans, ...).
+  order: u8,
+  /// Padding to 64 bytes (39 bytes used, need 25 more).
+  _pad0: [u8; 25],
+
+  // === Cache line 1: Cross-thread contended fields ===
   /// Free blocks from non-owner threads (lock-free Treiber stack).
   remote_free: AtomicPtr<FreeBlock>,
   /// Outstanding allocations (`alloc++`, `free--`).
@@ -123,20 +135,13 @@ struct SpanHeader {
   owner: AtomicU32,
   /// In reuse cache (prevents double-enqueue).
   in_reuse: AtomicBool,
-
-  block_size: u32,
-  class: u8,
-  kind: SpanKind,
-  /// Buddy order (0 = 1 span, 1 = 2 spans, ...).
-  order: u8,
-
-  /// Intrusive list pointer.
+  /// Intrusive list pointer (cache management).
   cache_next: *mut SpanHeader,
   /// Original mmap base (for munmap).
   huge_base: *mut u8,
   /// Total mmap size.
   huge_size: usize,
-  /// Magic number for validation
+  /// Magic number for validation.
   magic: u64,
 }
 
