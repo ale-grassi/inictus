@@ -1,0 +1,106 @@
+# -----------------------------------------------------------------------------
+# Dockerfile.memcheck - Valgrind memory checking for inictus allocator
+# Uses static linking with inictus (like Dockerfile.mimalloc-bench)
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Stage 1: Base Image with Build Tools
+# -----------------------------------------------------------------------------
+FROM ubuntu:24.04 AS base
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    cmake \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | sh -s -- -y --default-toolchain nightly --profile minimal
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# -----------------------------------------------------------------------------
+# Stage 2: Build GLIBC Benchmarks (cached separately from inictus)
+# -----------------------------------------------------------------------------
+FROM base AS glibc-bench-builder
+
+COPY mimalloc-bench/bench /mimalloc-bench/bench
+COPY mimalloc-bench/build-bench-env.sh /mimalloc-bench/
+COPY mimalloc-bench/bench.sh /mimalloc-bench/
+COPY mimalloc-bench/extern /mimalloc-bench/extern
+
+WORKDIR /mimalloc-bench
+RUN ./build-bench-env.sh packages 2>/dev/null || true
+
+# Build glibc-linked benchmarks with debug info for valgrind
+RUN cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo -B out/bench bench \
+    && cmake --build out/bench --parallel $(nproc)
+
+# -----------------------------------------------------------------------------
+# Stage 3: Build inictus Allocator (with debug info for valgrind)
+# -----------------------------------------------------------------------------
+FROM base AS inictus-builder
+
+WORKDIR /inictus
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY benches ./benches
+
+# Build with debug info for better valgrind stack traces
+RUN CARGO_PROFILE_RELEASE_DEBUG=true \
+    CARGO_PROFILE_RELEASE_LTO=true \
+    CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
+    CARGO_PROFILE_RELEASE_PANIC=abort \
+    CARGO_PROFILE_RELEASE_OPT_LEVEL=3 \
+    cargo build --release --features c_api
+
+# -----------------------------------------------------------------------------
+# Stage 4: Build inictus-linked Benchmarks (static linking)
+# -----------------------------------------------------------------------------
+FROM base AS inictus-bench-builder
+
+COPY --from=inictus-builder /inictus/target/release/libinictus.a /inictus/libinictus.a
+COPY --from=glibc-bench-builder /mimalloc-bench /mimalloc-bench
+
+WORKDIR /mimalloc-bench
+
+# Build inictus-linked benchmarks with debug info
+# --whole-archive forces ALL symbols from libinictus.a to be linked,
+# replacing malloc/free/etc with inictus implementations
+RUN cmake \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_C_FLAGS="-g" \
+    -DCMAKE_CXX_FLAGS="-g" \
+    -DCMAKE_EXE_LINKER_FLAGS="-Wl,--whole-archive /inictus/libinictus.a -Wl,--no-whole-archive -lpthread -ldl" \
+    -B out/bench/inictus \
+    bench
+RUN cmake --build out/bench/inictus --parallel $(nproc)
+
+# -----------------------------------------------------------------------------
+# Stage 5: Valgrind Runtime
+# -----------------------------------------------------------------------------
+FROM ubuntu:24.04 AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bc \
+    binutils \
+    libc6-dbg \
+    time \
+    valgrind \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy glibc benchmarks
+COPY --from=glibc-bench-builder /mimalloc-bench/out/bench /mimalloc-bench/out/bench
+COPY --from=glibc-bench-builder /mimalloc-bench/bench /mimalloc-bench/bench
+
+# Copy inictus-linked benchmarks (in inictus/ subdirectory)
+COPY --from=inictus-bench-builder /mimalloc-bench/out/bench/inictus /mimalloc-bench/out/bench/inictus
+
+# Copy memcheck script
+COPY scripts/docker_memcheck.sh /docker_memcheck.sh
+RUN chmod +x /docker_memcheck.sh
+
+WORKDIR /mimalloc-bench/out/bench
+
+ENTRYPOINT ["/docker_memcheck.sh"]

@@ -1,7 +1,8 @@
-.PHONY: build test miri clean clean-cargo clean-docker clean-perf cov bench \
+.PHONY: build test miri clean clean-cargo clean-docker clean-perf clean-valgrind cov bench \
         docker-bench-build docker-bench local-bench release perf \
         local-perf docker-perf-build docker-perf \
-        flamegraph flamegraphs
+        docker-memcheck-build docker-memcheck \
+        flamegraph flamegraphs memcheck
 
 # =============================================================================
 # Build & Test
@@ -27,16 +28,36 @@ miri:
 cov:
 	cargo llvm-cov --html --open --branch
 
-clean: clean-cargo clean-docker clean-perf
+clean: clean-cargo clean-docker clean-perf clean-valgrind
 
 clean-cargo:
 	cargo clean
 
 clean-docker:
-	-docker rmi $(DOCKER_IMAGE) $(DOCKER_IMAGE_PERF) 2>/dev/null || true
+	-docker rmi $(DOCKER_IMAGE) $(DOCKER_IMAGE_PERF) $(DOCKER_IMAGE_MEMCHECK) 2>/dev/null || true
 
 clean-perf:
 	rm -rf perf-data-local perf-data-docker
+
+clean-valgrind:
+	rm -rf valgrind-reports
+
+# =============================================================================
+# Memory Checking (valgrind)
+# =============================================================================
+
+memcheck:
+	cargo build --release --features "c_api,dynamic"
+	./scripts/local_memcheck.sh $(PROCS)
+
+DOCKER_IMAGE_MEMCHECK := inictus-memcheck
+
+docker-memcheck-build:
+	docker build -f scripts/Dockerfile.memcheck -t $(DOCKER_IMAGE_MEMCHECK) .
+
+docker-memcheck: docker-memcheck-build
+	@mkdir -p valgrind-reports
+	docker run --rm -t -v $(PWD)/valgrind-reports:/output $(DOCKER_IMAGE_MEMCHECK) $(PROCS)
 
 # =============================================================================
 # Local Benchmarks (Criterion)

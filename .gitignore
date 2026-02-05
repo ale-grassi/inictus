@@ -16,3 +16,5 @@ perf-data-docker/
 
 *.perf.data
 *.log
+
+valgrind-reports/
