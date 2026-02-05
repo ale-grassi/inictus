@@ -32,7 +32,7 @@ BENCHMARKS=(
     "malloc-large|malloc-large"
 )
 
-CACHE_FILE="/glibc_baseline.cache"
+CACHE_FILE="/glibc_baseline_${PROCS}t.cache"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Verify all glibc binaries use external malloc (symbol type 'U')

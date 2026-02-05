@@ -68,26 +68,95 @@ Span (64KB, 65536-byte aligned)
 
 ## Benchmarks
 
-Benchmark comparison using [mimalloc-bench](https://github.com/daanx/mimalloc-bench) suite (8 threads, Docker). Results vary ~10% between runs for both inictus and glibc.
+Benchmark comparison using [mimalloc-bench](https://github.com/daanx/mimalloc-bench) suite (Docker, static linking). Results vary ~5-10% between runs. Thread count is controlled via `make docker-bench PROCS=N`.
 
-| Test | glibc Time | glibc RSS | inictus Time | inictus RSS | Result |
-|------|------------|-----------|--------------|-------------|--------|
-| **glibc-simple** | 2.16s | 1.5MB | 1.71s | 2.2MB | **1.26x faster** ✓ |
-| **glibc-thread** | 2.00s | 2.7MB | 2.01s | 4.1MB | ~1.0x |
-| **cfrac** | 3.37s | 2.6MB | 3.51s | 3.2MB | 0.96x |
-| **espresso** | 3.66s | 2.1MB | 3.61s | 3.4MB | ~1.0x |
-| **barnes** | 2.66s | 56.6MB | 2.87s | 57.1MB | 0.92x |
-| **mstressN** | 0.84s | 256.7MB | 0.73s | 163.7MB | **1.15x faster** ✓ |
-| **rptestN** | 16.00s | 23.1MB | 16.08s | 891.3MB | ~1.0x |
-| **xmalloc-testN** | 5.01s | 49.7MB | 5.05s | 310.4MB | ~1.0x |
-| **alloc-test1** | 3.60s | 13.7MB | 3.44s | 15.5MB | **1.04x faster** ✓ |
-| **cache-scratch1** | 0.94s | 3.7MB | 0.98s | 5.9MB | 0.95x |
-| **larsonN** | 7.03s | 64.5MB | 7.06s | 363.0MB | ~1.0x |
-| **larsonN-sized** | 7.03s | 64.1MB | 7.05s | 363.3MB | ~1.0x |
-| **sh6benchN** | 0.95s | 412.0MB | 0.41s | 319.4MB | **2.31x faster** ✓ |
-| **sh8benchN** | 2.91s | 158.2MB | 1.48s | 231.2MB | **1.96x faster** ✓ |
-| **malloc-large** | 3.66s | 521.2MB | 2.98s | 628.9MB | **1.22x faster** ✓ |
+### 1 Thread
 
+| Test | glibc | inictus | Result |
+|------|-------|---------|--------|
+| glibc-simple | 2.36s (1.5MB) | 1.89s (4.9MB) | **1.25x** ✓ |
+| cfrac | 3.50s (2.8MB) | 3.39s (5.0MB) | **1.03x** ✓ |
+| espresso | 3.64s (2.1MB) | 3.52s (6.1MB) | **1.04x** ✓ |
+| barnes | 2.63s (57.1MB) | 2.64s (59.3MB) | ~1.0x |
+| glibc-thread | 2.00s (1.6MB) | 2.00s (7.6MB) | ~1.0x |
+| larsonN | 7.00s (16.1MB) | 7.01s (13.8MB) | ~1.0x |
+| larsonN-sized | 7.00s (16.2MB) | 7.01s (13.7MB) | ~1.0x |
+| mstressN | 0.02s (4.4MB) | 0.02s (9.3MB) | 0.86x |
+| rptestN | 16.00s (4.9MB) | 16.01s (97.2MB) | ~1.0x |
+| xmalloc-testN | 5.00s (2.9MB) | 5.03s (42.3MB) | ~1.0x |
+| cache-scratch1 | 0.92s (3.8MB) | 0.95s (12.9MB) | 0.97x |
+| alloc-test1 | 3.46s (13.6MB) | 3.63s (20.9MB) | 0.95x |
+| sh6benchN | 2.98s (409.9MB) | 2.11s (413.4MB) | **1.41x** ✓ |
+| sh8benchN | 12.09s (172.0MB) | 6.21s (124.4MB) | **1.95x** ✓ |
+| malloc-large | 3.46s (521.4MB) | 2.93s (630.1MB) | **1.18x** ✓ |
+
+### 4 Threads
+
+| Test | glibc | inictus | Result |
+|------|-------|---------|--------|
+| glibc-simple | 2.33s (1.5MB) | 1.87s (2.9MB) | **1.24x** ✓ |
+| cfrac | 3.44s (2.7MB) | 3.45s (5.7MB) | ~1.0x |
+| espresso | 3.66s (2.2MB) | 3.41s (6.6MB) | **1.07x** ✓ |
+| barnes | 2.68s (57.0MB) | 2.60s (59.6MB) | **1.03x** ✓ |
+| glibc-thread | 2.00s (2.2MB) | 2.00s (4.3MB) | ~1.0x |
+| larsonN | 7.01s (39.1MB) | 7.01s (25.1MB) | ~1.0x |
+| larsonN-sized | 7.01s (37.8MB) | 7.01s (25.7MB) | ~1.0x |
+| mstressN | 0.26s (79.4MB) | 0.21s (51.0MB) | **1.26x** ✓ |
+| rptestN | 16.00s (15.9MB) | 16.04s (499.6MB) | ~1.0x |
+| xmalloc-testN | 5.02s (44.8MB) | 5.02s (39.9MB) | ~1.0x |
+| cache-scratch1 | 0.95s (3.7MB) | 0.99s (8.1MB) | 0.96x |
+| alloc-test1 | 3.59s (13.7MB) | 3.74s (17.5MB) | 0.96x |
+| sh6benchN | 1.29s (410.3MB) | 0.67s (328.6MB) | **1.93x** ✓ |
+| sh8benchN | 4.10s (159.7MB) | 1.99s (122.4MB) | **2.06x** ✓ |
+| malloc-large | 3.65s (521.5MB) | 3.00s (629.1MB) | **1.22x** ✓ |
+
+### 8 Threads
+
+| Test | glibc | inictus | Result |
+|------|-------|---------|--------|
+| glibc-simple | 2.78s (1.5MB) | 1.93s (5.6MB) | **1.44x** ✓ |
+| cfrac | 3.93s (2.7MB) | 3.56s (8.9MB) | **1.10x** ✓ |
+| espresso | 4.36s (2.0MB) | 3.50s (5.1MB) | **1.25x** ✓ |
+| barnes | 2.96s (60.9MB) | 2.68s (59.5MB) | **1.10x** ✓ |
+| glibc-thread | 2.00s (2.7MB) | 2.01s (6.6MB) | ~1.0x |
+| larsonN | 7.03s (74.8MB) | 7.03s (44.5MB) | ~1.0x |
+| larsonN-sized | 7.03s (71.8MB) | 7.04s (43.5MB) | ~1.0x |
+| mstressN | 0.78s (228.4MB) | 0.56s (167.7MB) | **1.40x** ✓ |
+| rptestN | 16.00s (27.2MB) | 16.08s (914.0MB) | ~1.0x |
+| xmalloc-testN | 5.01s (59.7MB) | 5.02s (44.8MB) | ~1.0x |
+| cache-scratch1 | 1.03s (3.9MB) | 0.95s (12.8MB) | **1.08x** ✓ |
+| alloc-test1 | 3.42s (13.9MB) | 3.56s (23.3MB) | 0.96x |
+| sh6benchN | 0.96s (412.3MB) | 0.42s (315.8MB) | **2.29x** ✓ |
+| sh8benchN | 3.14s (160.7MB) | 1.33s (120.7MB) | **2.36x** ✓ |
+| malloc-large | 3.30s (521.5MB) | 2.98s (629.2MB) | **1.11x** ✓ |
+
+### 16 Threads
+
+| Test | glibc | inictus | Result |
+|------|-------|---------|--------|
+| glibc-simple | 2.22s (1.5MB) | 1.88s (3.4MB) | **1.18x** ✓ |
+| cfrac | 3.58s (2.7MB) | 3.39s (6.4MB) | **1.06x** ✓ |
+| espresso | 3.75s (2.2MB) | 3.40s (5.2MB) | **1.10x** ✓ |
+| barnes | 2.82s (56.9MB) | 2.59s (58.9MB) | **1.09x** ✓ |
+| glibc-thread | 2.00s (3.9MB) | 2.00s (7.7MB) | ~1.0x |
+| larsonN | 7.09s (133.0MB) | 7.08s (70.0MB) | ~1.0x |
+| larsonN-sized | 7.09s (120.9MB) | 7.08s (70.9MB) | ~1.0x |
+| mstressN | 1.44s (482.8MB) | 0.93s (354.6MB) | **1.54x** ✓ |
+| rptestN | 16.00s (47.0MB) | 16.14s (1686.2MB) | ~1.0x |
+| xmalloc-testN | 5.02s (73.0MB) | 5.01s (45.8MB) | ~1.0x |
+| cache-scratch1 | 0.93s (3.7MB) | 0.96s (20.1MB) | 0.97x |
+| alloc-test1 | 3.31s (13.8MB) | 3.65s (27.6MB) | 0.91x |
+| sh6benchN | 0.78s (414.6MB) | 0.42s (317.2MB) | **1.86x** ✓ |
+| sh8benchN | 2.49s (160.5MB) | 1.20s (122.9MB) | **2.08x** ✓ |
+| malloc-large | 3.64s (521.2MB) | 2.89s (630.8MB) | **1.26x** ✓ |
+
+### Scalability Notes
+
+- **1-thread tests** (`cfrac`, `espresso`, `alloc-test1`, `cache-scratch1`, `malloc-large`, `glibc-simple`): Measure single-threaded allocation throughput and cache locality.
+- **N-thread tests** (suffix `N`): Scale with thread count. Multi-threaded benchmarks run with the same thread count as `PROCS`.
+- **Cross-thread tests** (`larsonN`, `sh8benchN`, `xmalloc-testN`, `mstressN`): Stress test allocators where objects are freed by different threads than allocated them. These are particularly challenging for allocators with thread-local caches.
+- **Producer/consumer** (`xmalloc-testN`): 100 purely allocating threads + 100 purely deallocating threads, testing asymmetric workloads.
+- **LIFO/reverse-order** (`sh6benchN`): Tests allocation order patterns — some objects freed LIFO, others in reverse order.
 ## Running Benchmarks
 
 ### A note on benchmarking

@@ -672,6 +672,17 @@ impl Arena {
     addr >= base && addr < base + ARENA_SIZE
   }
 
+  #[inline]
+  #[cfg(debug_assertions)]
+  fn is_valid_block_ptr(&self, ptr: *mut FreeBlock) -> bool {
+    if ptr.is_null() {
+      return true; // null is valid
+    }
+    let base = self.base.load(Ordering::Relaxed) as usize;
+    let addr = ptr as usize;
+    ptr.is_aligned() && addr >= base && addr < base + ARENA_SIZE
+  }
+
   fn global_pop(&self, cpu: usize, class: usize) -> *mut SpanHeader {
     let start = cpu & (SHARD_COUNT - 1);
     for i in 0..SHARD_COUNT {
@@ -706,6 +717,12 @@ impl Arena {
     let already = unsafe { (*span).in_reuse.swap(true, Ordering::AcqRel) };
     if already {
       return; // Someone else pushed it.
+    }
+
+    // Re-verify owner after acquiring lock. If changed, we raced
+    if unsafe { (*span).owner.load(Ordering::Acquire) } != SPAN_OWNER_ORPHAN {
+      unsafe { (*span).in_reuse.store(false, Ordering::Release) };
+      return;
     }
 
     if !self.reuse.push(cpu & (SHARD_COUNT - 1), class, span) {
@@ -761,8 +778,22 @@ impl Arena {
         } else {
           // Otherwise, just drain remote frees for immediate reuse.
           let remote = (*span_ptr).remote_free.swap(null_mut(), Ordering::Acquire);
+          #[cfg(debug_assertions)]
+          {
+            debug_assert!(
+              self.is_valid_block_ptr(remote),
+              "reuse_pop: remote_free {:p} is invalid! span={:p} class={} used={} owner={}",
+              remote,
+              span_ptr,
+              (*span_ptr).class,
+              (*span_ptr).used.load(Ordering::Relaxed),
+              (*span_ptr).owner.load(Ordering::Relaxed)
+            );
+          }
           (*span_ptr).local_free = remote;
           (*span_ptr).hot_block = null_mut();
+          (*span_ptr).owner.store(heap.tid, Ordering::Release);
+          (*span_ptr).in_reuse.store(false, Ordering::Relaxed);
         }
       }
 
@@ -775,6 +806,8 @@ impl Arena {
       .alloc(self, 0)
       .map(|idx| self.idx_to_span(idx))
       .map(|span_ptr| {
+        // Fresh buddy spans need used=0 (cached spans already verified used==0)
+        unsafe { (*span_ptr).used.store(0, Ordering::Relaxed) };
         unsafe { init_span(span_ptr, class, heap.tid) };
         span_ptr
       })
@@ -808,7 +841,7 @@ impl Arena {
       (*span).owner.store(SPAN_OWNER_ORPHAN, Ordering::Release);
     }
 
-    // Fully free: try local cache, else return to buddy.
+    // Fully free: try local cache, else return to global cache.
     if unsafe { (*span).used.load(Ordering::Acquire) } == 0 {
       unsafe {
         (*span).in_reuse.store(false, Ordering::Release);
@@ -820,11 +853,11 @@ impl Arena {
         return;
       }
 
-      self.buddy.free(self, self.span_to_idx(span), 0);
+      self.global_push(heap.cpu, class, span);
       return;
     }
 
-    // Partially used with remote frees: enqueue to reuse cache.
+    // Partially used with remote frees
     if unsafe { !(*span).remote_free.load(Ordering::Acquire).is_null() } {
       self.reuse_push(heap.cpu, class, span);
     }
@@ -912,6 +945,8 @@ fn with_heap<R: Default, F: FnOnce(&mut ThreadHeap, &Arena) -> R>(f: F) -> R {
 // Small allocation / free
 // =============================================================================
 
+// NOTE: Do NOT reset `used` here. In-flight frees may still be pending.
+// Callers must verify used==0 before calling init_span.
 unsafe fn init_span(span: *mut SpanHeader, class: usize, tid: u32) {
   let block_size = class_to_size(class);
   let capacity = (SPAN_SIZE - SPAN_HEADER_SIZE) / block_size;
@@ -922,7 +957,6 @@ unsafe fn init_span(span: *mut SpanHeader, class: usize, tid: u32) {
   header.hot_block = null_mut();
   header.local_free = null_mut();
   header.remote_free.store(null_mut(), Ordering::Relaxed);
-  header.used.store(0, Ordering::Relaxed);
   header.owner.store(tid, Ordering::Release);
   header.in_reuse.store(false, Ordering::Relaxed);
   header.block_size = block_size as u32;
@@ -947,6 +981,20 @@ fn alloc_small(heap: &mut ThreadHeap, arena: &Arena, size: usize) -> Option<NonN
       heap.spans[class] = span;
     }
 
+    // Verify we own this span before using it
+    #[cfg(debug_assertions)]
+    {
+      let owner = unsafe { (*span).owner.load(Ordering::Relaxed) };
+      debug_assert!(
+        owner == heap.tid,
+        "alloc_small: span {:p} owner {} != our tid {}! class={}",
+        span,
+        owner,
+        heap.tid,
+        unsafe { (*span).class }
+      );
+    }
+
     unsafe {
       // Fast path: hot block (MRU)
       let hot = (*span).hot_block;
@@ -959,14 +1007,37 @@ fn alloc_small(heap: &mut ThreadHeap, arena: &Arena, size: usize) -> Option<NonN
       // Local free list
       let block = (*span).local_free;
       if !block.is_null() {
+        #[cfg(debug_assertions)]
+        {
+          debug_assert!(
+            arena.is_valid_block_ptr(block),
+            "alloc_small: local_free {:p} is invalid! span={:p} class={} used={} owner={}",
+            block,
+            span,
+            (*span).class,
+            (*span).used.load(Ordering::Relaxed),
+            (*span).owner.load(Ordering::Relaxed)
+          );
+        }
         (*span).local_free = (*block).next;
         (*span).used.fetch_add(1, Ordering::Relaxed);
         return NonNull::new(block as *mut u8);
       }
 
-      // Drain remote free list into local (no used changes: used tracks outstanding allocations only)
       let remote = (*span).remote_free.swap(null_mut(), Ordering::Acquire);
       if !remote.is_null() {
+        #[cfg(debug_assertions)]
+        {
+          debug_assert!(
+            arena.is_valid_block_ptr(remote),
+            "alloc_small drain: remote_free {:p} is invalid! span={:p} class={} used={} owner={}",
+            remote,
+            span,
+            (*span).class,
+            (*span).used.load(Ordering::Relaxed),
+            (*span).owner.load(Ordering::Relaxed)
+          );
+        }
         (*span).local_free = remote;
         continue;
       }
@@ -1025,20 +1096,32 @@ fn free_small(arena: &Arena, ptr: *mut u8, span: *mut SpanHeader) {
       }
     }
 
+    // Decrement used AFTER completing the free operation
     let prev = (*span).used.fetch_sub(1, Ordering::Release);
     debug_assert!(prev != 0, "free_small: used underflow");
 
-    // Last free: reclaim if orphan and not cached
     if prev == 1 {
       core::sync::atomic::fence(Ordering::Acquire);
-      let in_reuse = (*span).in_reuse.load(Ordering::Acquire);
       let owner = (*span).owner.load(Ordering::Acquire);
+      if owner == SPAN_OWNER_ORPHAN {
+        // This prevents double-enqueue and ensures only one thread handles cleanup.
+        if !(*span).in_reuse.swap(true, Ordering::AcqRel) {
+          // Re-verify owner after acquiring lock. If changed, we raced.
+          if (*span).owner.load(Ordering::Acquire) != SPAN_OWNER_ORPHAN {
+            // Span was claimed. Restore and abort.
+            (*span).in_reuse.store(false, Ordering::Release);
+            return;
+          }
 
-      if !in_reuse && owner == SPAN_OWNER_ORPHAN {
-        arena.buddy.free(arena, arena.span_to_idx(span), 0);
-      } else {
-        (*span).in_reuse.store(false, Ordering::Release);
+          let class = (*span).class as usize;
+          let cpu = cpu_id();
+          // Try reuse cache first or fallback to global cache.
+          if !arena.reuse.push(cpu & (SHARD_COUNT - 1), class, span) {
+            arena.global_push(cpu, class, span);
+          }
+        }
       }
+      // If owner != ORPHAN, the owning thread will handle via retire_small_span
     }
   }
 }
