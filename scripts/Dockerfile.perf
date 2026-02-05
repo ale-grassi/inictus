@@ -1,0 +1,89 @@
+# -----------------------------------------------------------------------------
+# Dockerfile.perf - Build for profiling with perf (frame pointers + debug info)
+# -----------------------------------------------------------------------------
+# Stage 1: Base Image with Build Tools
+# -----------------------------------------------------------------------------
+FROM ubuntu:24.04 AS base
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    ca-certificates \
+    cmake \
+    curl \
+    git \
+    time \
+    bc \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+    | sh -s -- -y --default-toolchain nightly --profile minimal
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# -----------------------------------------------------------------------------
+# Stage 2: Build inictus Allocator (Perf profile with frame pointers)
+# -----------------------------------------------------------------------------
+FROM base AS inictus-perf-builder
+
+WORKDIR /inictus
+COPY Cargo.toml Cargo.lock ./
+COPY src ./src
+COPY benches ./benches
+
+# Build with perf profile + frame pointers
+RUN RUSTFLAGS="-C force-frame-pointers=yes" \
+    cargo build --profile perf --features c_api
+
+# -----------------------------------------------------------------------------
+# Stage 3: Build Benchmarks for Perf (with debug info + frame pointers)
+# -----------------------------------------------------------------------------
+FROM base AS bench-perf-builder
+
+COPY --from=inictus-perf-builder /inictus/target/perf/libinictus.a /inictus/libinictus.a
+
+COPY mimalloc-bench/bench /mimalloc-bench/bench
+COPY mimalloc-bench/build-bench-env.sh /mimalloc-bench/
+COPY mimalloc-bench/bench.sh /mimalloc-bench/
+COPY mimalloc-bench/extern /mimalloc-bench/extern
+
+WORKDIR /mimalloc-bench
+RUN ./build-bench-env.sh packages 2>/dev/null || true
+
+# Build inictus-linked benchmarks with debug info + frame pointers
+RUN cmake \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DCMAKE_C_FLAGS="-fno-omit-frame-pointer -g" \
+    -DCMAKE_CXX_FLAGS="-fno-omit-frame-pointer -g" \
+    -DCMAKE_EXE_LINKER_FLAGS="-Wl,--whole-archive /inictus/libinictus.a -Wl,--no-whole-archive -lpthread -ldl" \
+    -B out/bench/inictus \
+    bench
+RUN cmake --build out/bench/inictus --parallel $(nproc)
+
+# -----------------------------------------------------------------------------
+# Stage 4: Perf Runtime Image (includes perf tool)
+# -----------------------------------------------------------------------------
+FROM ubuntu:24.04 AS runtime
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bc \
+    binutils \
+    bsdmainutils \
+    coreutils \
+    file \
+    locales \
+    time \
+    linux-tools-generic \
+    linux-tools-common \
+    && rm -rf /var/lib/apt/lists/* \
+    && locale-gen en_US.UTF-8
+
+# Try to symlink the correct perf version
+RUN ln -sf /usr/lib/linux-tools/*/perf /usr/bin/perf 2>/dev/null || true
+
+COPY --from=bench-perf-builder /mimalloc-bench/out/bench/inictus /mimalloc-bench/out/bench/inictus
+COPY --from=bench-perf-builder /mimalloc-bench/bench /mimalloc-bench/bench
+COPY scripts/docker_perf.sh /docker_perf.sh
+RUN chmod +x /docker_perf.sh
+
+WORKDIR /mimalloc-bench/out/bench
+
+ENTRYPOINT ["/docker_perf.sh"]

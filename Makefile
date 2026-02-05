@@ -109,13 +109,13 @@ PROCS ?= 8
 PERF_OUTPUT_DOCKER ?= ./perf-data-docker
 
 docker-bench-build:
-	docker build -f scripts/Dockerfile.mimalloc-bench --build-arg PROCS=$(PROCS) -t $(DOCKER_IMAGE) --target runtime .
+	docker build -f scripts/Dockerfile.bench --build-arg PROCS=$(PROCS) -t $(DOCKER_IMAGE) .
 
 docker-bench: docker-bench-build
 	docker run --rm -t --cpus=$(PROCS) $(DOCKER_IMAGE) $(PROCS)
 
 docker-perf-build:
-	docker build -f scripts/Dockerfile.mimalloc-bench --build-arg PROCS=$(PROCS) -t $(DOCKER_IMAGE_PERF) --target runtime-perf .
+	docker build -f scripts/Dockerfile.perf -t $(DOCKER_IMAGE_PERF) .
 
 docker-perf: docker-perf-build
 	@mkdir -p $(PERF_OUTPUT_DOCKER)
